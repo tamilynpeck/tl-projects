@@ -91,7 +91,7 @@ def loop_thru_folder(
 
 
 def export_file(df, name, index=False):
-    output_path = os.path.dirname(__file__) + "\\ReportOutput"
+    output_path = os.path.dirname(__file__) + "\\output"
     file_name = f"{output_path}\\ErrorCollection_{name}_{datetime.today().strftime('%Y-%m-%d %H%M%S')}.xlsx"
     excel_file = pd.ExcelWriter(file_name)
     df.to_excel(excel_file, index=index)
