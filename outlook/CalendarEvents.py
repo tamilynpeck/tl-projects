@@ -1,4 +1,5 @@
 import win32com.client
+import os
 import datetime
 import pandas as pd
 import numpy as np
@@ -26,7 +27,7 @@ class CalendarEvents:
         date_restriction = (
             f"[Start] >= '{self.start_date}' AND [End] <= '{self.end_date}'"
         )
-
+        print(f"date_restriction {date_restriction}")
         self.calendar_events = self.calendar.Restrict(date_restriction)
         self.df = self.create_dataframe()
 
@@ -42,7 +43,7 @@ class CalendarEvents:
             ]
             df.loc[index] = event_row_data
 
-        df["Category"] = df["Category"].str.replace(r"^$", "None")
+        df["Category"] = df["Category"].str.replace(r"^$", "None", regex=True)
         df = df[df["Category"] != "Ignore"]
 
         return df
@@ -52,12 +53,15 @@ class CalendarEvents:
         df["Hours"] = df["Duration"].apply(lambda val: val / 60)
         return df
 
-    def category_summary(self):
+    def category_summary(self, export=False):
         total_minutes = int(self.df[["Duration"]].sum())
-        df = self.df[["Category", "Duration"]].groupby(by=["Category"]).sum()
+        self.df["Hours"] = self.df["Duration"].divide(60)
+        df = self.df[["Category", "Duration", "Hours"]].groupby(by=["Category"]).sum()
         df["Percentage"] = df["Duration"].apply(lambda val: val / total_minutes)
-        # df = df.style.format({"Percentage": '{:,.2%}'.format})
         df["Percentage"] = df["Percentage"].apply(lambda val: "{:,.2%}".format(val))
+
+        if export:
+            export_file(df, "CategorySummary", index=False)
         return df
 
     def daily_category_summary(self):
@@ -93,3 +97,21 @@ class TodayCalendarEvents(CalendarEvents):
     def __init__(self):
         self.today = datetime.date.today().strftime("%Y-%m-%d")
         super().__init__(self.today, self.today)
+
+
+class WeekCalendarEvents(CalendarEvents):
+    def __init__(self):
+        self.today = datetime.date.today()
+        starting_monday = self.today - datetime.timedelta(days=self.today.weekday())
+        end_date = starting_monday + datetime.timedelta(days=5)
+        starting_monday = starting_monday.strftime("%Y-%m-%d")
+        end_date = end_date.strftime("%Y-%m-%d")
+        print(f"start: {starting_monday} end: {end_date}")
+        super().__init__(starting_monday, end_date)
+
+
+def export_file(df, name, index=False):
+    file_name = f"{os.path.dirname(__file__)}\\{name}_{datetime.date.today().strftime('%Y-%m-%d %H%M%S')}.xlsx"
+    excel_file = pd.ExcelWriter(file_name)
+    df.to_excel(excel_file, index=index)
+    excel_file.save()
